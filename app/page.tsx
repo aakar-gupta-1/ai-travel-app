@@ -35,8 +35,12 @@ export default function Home() {
       const data: Recommendation = await response.json();
       setRecommendation(data);
 
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch recommendation.');
+    } catch (err) { // ✅ FIX 1: Changed 'err: any' to check if it's an Error instance
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +67,8 @@ export default function Home() {
             
             {!travelStyle ? (
               <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">What's your travel style?</h2>
+                {/* ✅ FIX 2: Replaced ' with &apos; */}
+                <h2 className="text-xl font-semibold mb-4">What&apos;s your travel style?</h2>
                 <div className="flex justify-center gap-4">
                   <button onClick={() => setTravelStyle('adventure')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Adventure</button>
                   <button onClick={() => setTravelStyle('culture')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Culture</button>
@@ -73,7 +78,8 @@ export default function Home() {
             
             {travelStyle && !budget ? (
                <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-4">What's your budget?</h2>
+                {/* ✅ FIX 3: Replaced ' with &apos; */}
+                <h2 className="text-xl font-semibold mb-4">What&apos;s your budget?</h2>
                 <div className="flex flex-col gap-4">
                   <button onClick={() => setBudget('low')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">Low</button>
                   <button onClick={() => setBudget('medium')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">Medium</button>
