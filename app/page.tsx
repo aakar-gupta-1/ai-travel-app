@@ -11,36 +11,36 @@ interface Recommendation {
 
 export default function Home() {
   const [travelStyle, setTravelStyle] = useState<string | null>(null);
-  const [budget, setBudget] = useState<string | null>(null);
+  // ✨ NEW: State for budget slider and custom text prompt
+  const [budget, setBudget] = useState<number>(75000); 
+  const [customPrompt, setCustomPrompt] = useState<string>("");
   
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const findRecommendation = async () => {
-    if (!travelStyle || !budget) return;
+    if (!travelStyle) return;
     
     setIsLoading(true);
     setError(null);
     setRecommendation(null);
 
     try {
+      // 🔄 UPDATED: Send the new budget and customPrompt in the API call
       const response = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ travelStyle, budget }),
+        body: JSON.stringify({ travelStyle, budget, customPrompt }),
       });
 
       if (!response.ok) throw new Error('Something went wrong. Please try again.');
       const data: Recommendation = await response.json();
       setRecommendation(data);
 
-    } catch (err) { // ✅ FIX 1: Changed 'err: any' to check if it's an Error instance
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('An unexpected error occurred.');
-      }
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unexpected error occurred.');
     } finally {
       setIsLoading(false);
     }
@@ -48,7 +48,8 @@ export default function Home() {
   
   const resetQuiz = () => {
     setTravelStyle(null);
-    setBudget(null);
+    setBudget(75000);
+    setCustomPrompt("");
     setRecommendation(null);
     setError(null);
     setIsLoading(false);
@@ -57,7 +58,7 @@ export default function Home() {
   const getImageUrl = (searchTerm: string) => `https://images.unsplash.com/photo-1500835556837-99ac94a94552?q=80&w=800&auto=format&fit=crop&q=60=${encodeURIComponent(searchTerm)}`;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-100 text-gray-800 font-sans">
+    <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-gray-100 text-gray-800 font-sans">
       <div className="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8 text-center transition-all duration-500">
         
         {!recommendation && !isLoading && !error && (
@@ -65,42 +66,53 @@ export default function Home() {
             <h1 className="text-3xl font-bold mb-2">Find Your Next Adventure</h1>
             <p className="text-gray-600 mb-8">Let AI find the perfect trip for you.</p>
             
-            {!travelStyle ? (
-              <div className="mb-6">
-                {/* ✅ FIX 2: Replaced ' with &apos; */}
-                <h2 className="text-xl font-semibold mb-4">What&apos;s your travel style?</h2>
-                <div className="flex justify-center gap-4">
-                  <button onClick={() => setTravelStyle('adventure')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Adventure</button>
-                  <button onClick={() => setTravelStyle('culture')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Culture</button>
-                </div>
+            <div className="mb-6 text-left">
+              <label className="block text-xl font-semibold mb-4 text-center">1. What&apos;s your travel style?</label>
+              <div className="flex justify-center gap-4">
+                <button onClick={() => setTravelStyle('adventure')} className={`w-full font-bold py-3 px-4 rounded-lg transition duration-300 ${travelStyle === 'adventure' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800 hover:bg-blue-200'}`}>Adventure</button>
+                <button onClick={() => setTravelStyle('culture')} className={`w-full font-bold py-3 px-4 rounded-lg transition duration-300 ${travelStyle === 'culture' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-800 hover:bg-green-200'}`}>Culture</button>
               </div>
-            ) : null}
-            
-            {travelStyle && !budget ? (
-               <div className="mb-6">
-                {/* ✅ FIX 3: Replaced ' with &apos; */}
-                <h2 className="text-xl font-semibold mb-4">What&apos;s your budget?</h2>
-                <div className="flex flex-col gap-4">
-                  <button onClick={() => setBudget('low')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">Low</button>
-                  <button onClick={() => setBudget('medium')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">Medium</button>
-                  <button onClick={() => setBudget('high')} className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-4 rounded-lg transition duration-300">High</button>
-                </div>
-              </div>
-            ) : null}
+            </div>
 
-            {travelStyle && budget && (
-              <button onClick={findRecommendation} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition duration-300">
-                Get My AI Recommendation
-              </button>
+            {/* ✨ NEW: Replaced budget buttons with a slider and text box */}
+            {travelStyle && (
+              <div className='animate-fade-in'>
+                <div className="mb-6 text-left">
+                  <label htmlFor="budget" className="block text-xl font-semibold mb-2 text-center">2. What&apos;s your max budget?</label>
+                  <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
+                  <input
+                    id="budget"
+                    type="range"
+                    min="10000"
+                    max="500000"
+                    step="5000"
+                    value={budget}
+                    onChange={(e) => setBudget(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+
+                <div className="mb-8 text-left">
+                  <label htmlFor="customPrompt" className="block text-xl font-semibold mb-2 text-center">3. Any specific requests?</label>
+                  <textarea
+                    id="customPrompt"
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="e.g., somewhere in the mountains, family-friendly, need vegetarian food options..."
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+                
+                <button onClick={findRecommendation} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition duration-300">
+                  Get My AI Recommendation
+                </button>
+              </div>
             )}
           </>
         )}
 
-        {isLoading && (
-          <div className="animate-pulse">
-            <h2 className="text-2xl font-semibold text-gray-600">Our AI is thinking...</h2>
-          </div>
-        )}
+        {isLoading && (<div className="animate-pulse"><h2 className="text-2xl font-semibold text-gray-600">Our AI is thinking...</h2></div>)}
 
         {error && (
           <div className="text-red-500">
@@ -117,7 +129,7 @@ export default function Home() {
             <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4">
                 <Image src={getImageUrl(recommendation.image)} alt={recommendation.name} fill={true} style={{objectFit:"cover"}} priority />
             </div>
-            <p className="text-gray-700 mb-6">{recommendation.description}</p>
+            <p className="text-gray-700 mb-6 text-left">{recommendation.description}</p>
             <button onClick={() => alert('Booking system coming soon!')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-lg mb-4 transition duration-300">Book Now</button>
             <button onClick={resetQuiz} className="text-gray-500 hover:text-gray-700">Start Over</button>
           </div>
