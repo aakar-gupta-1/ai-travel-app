@@ -1,19 +1,16 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 
-// Define data structures
 interface Recommendation {
   name: string;
   description: string;
-  image: string;
+  image: string; // This is now the search term
 }
 
 const allMoods = ["Adventure", "Culture", "Relaxation", "Foodie", "Historical", "Nightlife"];
-
-// Define loading states for different actions
 type LoadingState = 'idle' | 'recommendation' | 'itinerary';
 
 export default function Home() {
@@ -29,7 +26,38 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>('idle');
   
+  // ✨ NEW: State to hold the final, fetched image URL
+  const [imageUrl, setImageUrl] = useState<string>('');
+  
   const currentRecommendation = recommendations.length > 0 ? recommendations[recommendations.length - 1] : null;
+
+  // ✨ NEW: useEffect hook to fetch the image when a new recommendation is received
+  useEffect(() => {
+    if (!currentRecommendation) return;
+
+    const fetchImage = async () => {
+      try {
+        const response = await fetch('/api/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ searchTerm: currentRecommendation.image })
+        });
+        const data = await response.json();
+        if (data.imageUrl) {
+          setImageUrl(data.imageUrl);
+        } else {
+          // Set a default fallback image if something goes wrong
+          setImageUrl('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1');
+        }
+      } catch (error) {
+        console.error("Failed to fetch image", error);
+        setImageUrl('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1');
+      }
+    };
+
+    fetchImage();
+  }, [currentRecommendation]);
+
 
   const handleMoodSelect = (mood: string) => {
     setTravelStyles(prev => prev.includes(mood) ? prev.filter(s => s !== mood) : [...prev, mood]);
@@ -101,14 +129,9 @@ export default function Home() {
     setItinerary(null);
     setError(null);
     setLoadingState('idle');
+    setImageUrl('');
   };
 
-  // 🔄 UPDATED URL: Fetches a dynamic, high-resolution image from Unsplash based on the search term.
-  const getImageUrl = (searchTerm: string) => {
-    return `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
-  }
-  
-  // UI Render Logic
   const renderQuiz = () => (
     <>
       <h1 className="text-3xl font-bold mb-2">AI Travel Planner</h1>
@@ -166,8 +189,11 @@ export default function Home() {
         <>
           <h2 className="text-xl font-semibold mb-2">Your AI recommendation is...</h2>
           <h1 className="text-4xl font-bold mb-4 text-blue-600">{currentRecommendation?.name}</h1>
-          <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4">
-            <Image src={getImageUrl(currentRecommendation!.image)} alt={currentRecommendation!.name} fill={true} style={{objectFit:"cover"}} priority />
+          {/* 🔄 UPDATED: The Image component now uses the imageUrl state */}
+          <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4 bg-gray-200 animate-pulse">
+            {imageUrl && (
+                <Image src={imageUrl} alt={currentRecommendation!.name} fill={true} style={{objectFit:"cover"}} priority />
+            )}
           </div>
           <p className="text-gray-700 mb-6 text-left">{currentRecommendation?.description}</p>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
