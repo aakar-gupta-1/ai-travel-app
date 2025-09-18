@@ -161,7 +161,7 @@ export default function Home() {
           <div className="mb-6 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">3. What&apos;s the total budget?</label>
             <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
-            <input type="range" min="20000" max="1000000" step="10000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+            <input type="range" min="5000" max="1000000" step="5000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
           </div>
           <div className="mb-8 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">4. Any other requests?</label>
