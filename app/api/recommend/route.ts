@@ -2,33 +2,32 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  // 🔄 UPDATED: 'travelStyles' is now expected to be an array of strings
-  const { travelStyles, budget, customPrompt } = await req.json();
+  // ✨ NEW: Accept numPeople and previousRecommendations
+  const { travelStyles, budget, customPrompt, numPeople, previousRecommendations } = await req.json();
 
-  // 🔄 UPDATED: Check if travelStyles is a non-empty array
-  if (!travelStyles || travelStyles.length === 0 || !budget) {
-    return NextResponse.json({ error: "Missing travelStyles or budget" }, { status: 400 });
+  if (!travelStyles || travelStyles.length === 0 || !budget || !numPeople) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // 🔄 UPDATED: The prompt now joins the array of styles into a string
+  // 🔄 UPDATED: A more detailed prompt for the AI
   const prompt = `
-    You are a travel recommendation expert specializing in personalized itineraries.
-    A user from India has specified their travel preferences:
+    You are a travel recommendation expert. A group of ${numPeople} people from India are looking for a trip.
 
-    1.  **Desired Travel Styles:** "${travelStyles.join(', ')}"
-    2.  **Maximum Budget per Person (in INR):** ₹${Number(budget).toLocaleString('en-IN')}
-    3.  **Specific User Requirements:** "${customPrompt || 'None specified. Feel free to be creative.'}"
+    Their preferences are:
+    - **Desired Travel Styles:** "${travelStyles.join(', ')}"
+    - **Total Maximum Budget for the Group:** ₹${Number(budget).toLocaleString('en-IN')}
+    - **Specific User Requirements:** "${customPrompt || 'None specified.'}"
+    ${previousRecommendations && previousRecommendations.length > 0 ? `- **Destinations to Exclude:** "${previousRecommendations.join(', ')}"` : ''}
 
-    Based on this combination of styles and requirements, recommend a single, specific travel destination (e.g., a city, national park, or region) that perfectly blends these interests.
-    The recommended destination can be within India or international, but it must be realistically achievable within the given budget for a person traveling from India.
+    Based on all these preferences, recommend a single, specific travel destination. The destination must be a great fit for a group of ${numPeople} and realistically achievable within the budget.
 
     Respond with ONLY a JSON object in the following format, with no other text or markdown:
     {
       "name": "Destination Name",
-      "description": "A compelling, 2-3 sentence description of why this place is a great fit, referencing the user's desired styles, budget, and specific requirements.",
+      "description": "A compelling, 2-3 sentence description of why this place is a great fit, referencing the group size, styles, and budget.",
       "image": "a photographic search term for an image of this place"
     }
   `;
@@ -44,6 +43,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(recommendation);
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: "Failed to get recommendation from AI" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to get recommendation" }, { status: 500 });
   }
 }

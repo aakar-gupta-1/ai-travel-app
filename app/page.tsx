@@ -2,149 +2,204 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import ReactMarkdown from 'react-markdown';
 
+// Define data structures
 interface Recommendation {
   name: string;
   description: string;
   image: string;
 }
 
-// ✨ NEW: Expanded list of available moods
 const allMoods = ["Adventure", "Culture", "Relaxation", "Foodie", "Historical", "Nightlife"];
 
+// Define loading states for different actions
+type LoadingState = 'idle' | 'recommendation' | 'itinerary';
+
 export default function Home() {
-  // 🔄 UPDATED: 'travelStyles' is now an array to hold multiple selections
+  // Quiz State
   const [travelStyles, setTravelStyles] = useState<string[]>([]);
-  const [budget, setBudget] = useState<number>(75000); 
+  const [numPeople, setNumPeople] = useState(2);
+  const [budget, setBudget] = useState<number>(100000); 
   const [customPrompt, setCustomPrompt] = useState<string>("");
   
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // Results State
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [itinerary, setItinerary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingState, setLoadingState] = useState<LoadingState>('idle');
+  
+  // Get the most recent recommendation
+  const currentRecommendation = recommendations.length > 0 ? recommendations[recommendations.length - 1] : null;
 
-  // ✨ NEW: Function to handle adding/removing moods from the state array
   const handleMoodSelect = (mood: string) => {
-    setTravelStyles(prevStyles => 
-      prevStyles.includes(mood)
-        ? prevStyles.filter(s => s !== mood) // Remove mood if it's already there
-        : [...prevStyles, mood] // Add mood if it's not
-    );
+    setTravelStyles(prev => prev.includes(mood) ? prev.filter(s => s !== mood) : [...prev, mood]);
   };
   
   const findRecommendation = async () => {
-    // 🔄 UPDATED: Check if the array is not empty
     if (travelStyles.length === 0) {
         setError("Please select at least one travel style.");
         return;
     }
     setError(null);
-    setIsLoading(true);
-    setRecommendation(null);
+    setItinerary(null); // Clear previous itinerary
+    setLoadingState('recommendation');
+
+    const previousRecommendations = recommendations.map(r => r.name);
 
     try {
-      // 🔄 UPDATED: Send the array of styles to the API
       const response = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ travelStyles, budget, customPrompt }),
+        body: JSON.stringify({ travelStyles, budget, customPrompt, numPeople, previousRecommendations }),
       });
 
-      if (!response.ok) throw new Error('Something went wrong. Please try again.');
+      if (!response.ok) throw new Error('AI failed to find a recommendation. Please try again.');
       const data: Recommendation = await response.json();
-      setRecommendation(data);
-
+      setRecommendations(prev => [...prev, data]);
     } catch (err) {
       if (err instanceof Error) setError(err.message);
       else setError('An unexpected error occurred.');
     } finally {
-      setIsLoading(false);
+      setLoadingState('idle');
     }
   };
+
+  const createItinerary = async () => {
+    if (!currentRecommendation) return;
+    setLoadingState('itinerary');
+    setError(null);
+
+    try {
+      const response = await fetch('/api/itinerary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationName: currentRecommendation.name,
+          travelStyles,
+          budget,
+          numPeople,
+          customPrompt
+        })
+      });
+      if (!response.ok) throw new Error('AI failed to create an itinerary. Please try again.');
+      const data = await response.json();
+      setItinerary(data.itinerary);
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unexpected error occurred.');
+    } finally {
+      setLoadingState('idle');
+    }
+  }
   
   const resetQuiz = () => {
     setTravelStyles([]);
-    setBudget(75000);
+    setNumPeople(2);
+    setBudget(100000);
     setCustomPrompt("");
-    setRecommendation(null);
+    setRecommendations([]);
+    setItinerary(null);
     setError(null);
-    setIsLoading(false);
+    setLoadingState('idle');
   };
 
   const getImageUrl = (searchTerm: string) => `https://images.unsplash.com/photo-1500835556837-99ac94a94552?q=80&w=800&auto=format&fit=crop&q=60=${encodeURIComponent(searchTerm)}`;
+  
+  // UI Render Logic
+  const renderQuiz = () => (
+    <>
+      <h1 className="text-3xl font-bold mb-2">AI Travel Planner</h1>
+      <p className="text-gray-600 mb-8">Answer a few questions to get your next trip planned.</p>
+      
+      {/* Mood Selection */}
+      <div className="mb-6 text-left">
+        <label className="block text-xl font-semibold mb-4 text-center">1. What&apos;s the vibe?</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {allMoods.map(mood => (
+            <button key={mood} onClick={() => handleMoodSelect(mood)} className={`font-bold py-3 px-2 rounded-lg transition duration-300 text-sm sm:text-base ${travelStyles.includes(mood) ? 'bg-indigo-600 text-white' : 'bg-gray-100 hover:bg-gray-200'}`}>
+              {mood}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {travelStyles.length > 0 && (
+        <div className='animate-fade-in'>
+          {/* Number of People */}
+          <div className="mb-6 text-left">
+            <label className="block text-xl font-semibold mb-2 text-center">2. How many people?</label>
+            <div className='flex items-center justify-center gap-4'>
+              <button onClick={() => setNumPeople(p => Math.max(1, p - 1))} className='font-bold text-2xl bg-gray-200 rounded-full w-10 h-10'>-</button>
+              <p className='text-center text-2xl font-bold text-purple-600 w-12'>{numPeople}</p>
+              <button onClick={() => setNumPeople(p => p + 1)} className='font-bold text-2xl bg-gray-200 rounded-full w-10 h-10'>+</button>
+            </div>
+          </div>
+          {/* Budget */}
+          <div className="mb-6 text-left">
+            <label className="block text-xl font-semibold mb-2 text-center">3. What&apos;s the total budget?</label>
+            <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
+            <input type="range" min="20000" max="1000000" step="10000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+          </div>
+          {/* Custom Prompt */}
+          <div className="mb-8 text-left">
+            <label className="block text-xl font-semibold mb-2 text-center">4. Any other requests?</label>
+            <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="e.g., must be coastal, pet-friendly..." className="w-full p-2 border border-gray-300 rounded-lg" rows={2}/>
+          </div>
+          <button onClick={findRecommendation} disabled={loadingState !== 'idle'} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-400">
+            {loadingState === 'recommendation' ? 'Thinking...' : 'Find Destination'}
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const renderResults = () => (
+    <div className="animate-fade-in w-full">
+      {itinerary ? (
+        // Itinerary View
+        <div className='text-left'>
+           <h1 className="text-3xl font-bold mb-4 text-blue-600 text-center">Itinerary for {currentRecommendation?.name}</h1>
+           <div className='prose prose-sm sm:prose-base max-w-none bg-gray-50 p-4 rounded-lg'>
+             <ReactMarkdown>{itinerary}</ReactMarkdown>
+           </div>
+           <button onClick={() => setItinerary(null)} className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Back to Recommendation</button>
+        </div>
+      ) : (
+        // Recommendation View
+        <>
+          <h2 className="text-xl font-semibold mb-2">Your AI recommendation is...</h2>
+          <h1 className="text-4xl font-bold mb-4 text-blue-600">{currentRecommendation?.name}</h1>
+          <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4">
+            <Image src={getImageUrl(currentRecommendation!.image)} alt={currentRecommendation!.name} fill={true} style={{objectFit:"cover"}} priority />
+          </div>
+          <p className="text-gray-700 mb-6 text-left">{currentRecommendation?.description}</p>
+          <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
+             <button onClick={findRecommendation} disabled={loadingState !== 'idle'} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg disabled:bg-gray-400">
+                {loadingState === 'recommendation' ? 'Thinking...' : 'Suggest Again'}
+             </button>
+             <button onClick={createItinerary} disabled={loadingState !== 'idle'} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg disabled:bg-gray-400">
+                {loadingState === 'itinerary' ? 'Building...' : 'Create 3-Day Itinerary'}
+             </button>
+          </div>
+        </>
+      )}
+       <button onClick={resetQuiz} className="mt-6 text-gray-500 hover:text-gray-700">Start Over</button>
+    </div>
+  );
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-gray-100 text-gray-800 font-sans">
-      <div className="w-full max-w-lg mx-auto bg-white rounded-xl shadow-lg p-8 text-center transition-all duration-500">
-        
-        {!recommendation && !isLoading && !error && (
-          <>
-            <h1 className="text-3xl font-bold mb-2">Find Your Next Adventure</h1>
-            <p className="text-gray-600 mb-8">Let AI find the perfect trip for you.</p>
-            
-            <div className="mb-6 text-left">
-              <label className="block text-xl font-semibold mb-4 text-center">1. What&apos;s your vibe? <span className='text-gray-500 font-normal'>(Choose one or more)</span></label>
-              {/* 🔄 UPDATED: Grid of mood buttons that can be multi-selected */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {allMoods.map((mood) => (
-                  <button
-                    key={mood}
-                    onClick={() => handleMoodSelect(mood)}
-                    className={`font-bold py-3 px-2 rounded-lg transition duration-300 text-sm sm:text-base ${
-                      travelStyles.includes(mood)
-                        ? 'bg-indigo-600 text-white shadow-md'
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                    }`}
-                  >
-                    {mood}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Other inputs now appear only after at least one style is selected */}
-            {travelStyles.length > 0 && (
-              <div className='animate-fade-in'>
-                <div className="mb-6 text-left">
-                  <label htmlFor="budget" className="block text-xl font-semibold mb-2 text-center">2. What&apos;s your max budget?</label>
-                  <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
-                  <input id="budget" type="range" min="10000" max="500000" step="5000" value={budget} onChange={(e) => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
-                </div>
-
-                <div className="mb-8 text-left">
-                  <label htmlFor="customPrompt" className="block text-xl font-semibold mb-2 text-center">3. Any specific requests?</label>
-                  <textarea id="customPrompt" value={customPrompt} onChange={(e) => setCustomPrompt(e.target.value)} placeholder="e.g., somewhere in Europe, family-friendly..." className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" rows={3}/>
-                </div>
-                
-                <button onClick={findRecommendation} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg text-lg transition duration-300">
-                  Get My AI Recommendation
-                </button>
-              </div>
-            )}
-          </>
-        )}
-
-        {isLoading && (<div className="animate-pulse"><h2 className="text-2xl font-semibold text-gray-600">Our AI is thinking...</h2></div>)}
-        
+      <div className="w-full max-w-xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center transition-all duration-500">
         {error && (
-            <div className="text-red-500">
-                <h2 className="text-2xl font-bold mb-4">Oops!</h2>
+            <div className="text-red-500 mb-4">
+                <h2 className="text-2xl font-bold mb-2">Oops!</h2>
                 <p>{error}</p>
-                <button onClick={resetQuiz} className="mt-6 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Try Again</button>
+                <button onClick={() => setError(null)} className="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Try Again</button>
             </div>
         )}
 
-        {recommendation && (
-          <div className="animate-fade-in">
-            <h2 className="text-xl font-semibold mb-2">Your AI recommendation is...</h2>
-            <h1 className="text-4xl font-bold mb-4 text-blue-600">{recommendation.name}</h1>
-            <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4">
-                <Image src={getImageUrl(recommendation.image)} alt={recommendation.name} fill={true} style={{objectFit:"cover"}} priority />
-            </div>
-            <p className="text-gray-700 mb-6 text-left">{recommendation.description}</p>
-            <button onClick={() => alert('Booking system coming soon!')} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg text-lg mb-4 transition duration-300">Book Now</button>
-            <button onClick={resetQuiz} className="text-gray-500 hover:text-gray-700">Start Over</button>
-          </div>
-        )}
+        {!currentRecommendation ? renderQuiz() : renderResults()}
       </div>
     </main>
   );
