@@ -29,7 +29,6 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>('idle');
   
-  // Get the most recent recommendation
   const currentRecommendation = recommendations.length > 0 ? recommendations[recommendations.length - 1] : null;
 
   const handleMoodSelect = (mood: string) => {
@@ -42,7 +41,7 @@ export default function Home() {
         return;
     }
     setError(null);
-    setItinerary(null); // Clear previous itinerary
+    setItinerary(null);
     setLoadingState('recommendation');
 
     const previousRecommendations = recommendations.map(r => r.name);
@@ -104,7 +103,10 @@ export default function Home() {
     setLoadingState('idle');
   };
 
-  const getImageUrl = (searchTerm: string) => `https://images.unsplash.com/photo-1500835556837-99ac94a94552?q=80&w=800&auto=format&fit=crop&q=60=${encodeURIComponent(searchTerm)}`;
+  // 🔄 UPDATED URL: Fetches a dynamic, high-resolution image from Unsplash based on the search term.
+  const getImageUrl = (searchTerm: string) => {
+    return `https://source.unsplash.com/1600x900/?${encodeURIComponent(searchTerm)}`;
+  }
   
   // UI Render Logic
   const renderQuiz = () => (
@@ -112,7 +114,6 @@ export default function Home() {
       <h1 className="text-3xl font-bold mb-2">AI Travel Planner</h1>
       <p className="text-gray-600 mb-8">Answer a few questions to get your next trip planned.</p>
       
-      {/* Mood Selection */}
       <div className="mb-6 text-left">
         <label className="block text-xl font-semibold mb-4 text-center">1. What&apos;s the vibe?</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -126,7 +127,6 @@ export default function Home() {
 
       {travelStyles.length > 0 && (
         <div className='animate-fade-in'>
-          {/* Number of People */}
           <div className="mb-6 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">2. How many people?</label>
             <div className='flex items-center justify-center gap-4'>
@@ -135,13 +135,11 @@ export default function Home() {
               <button onClick={() => setNumPeople(p => p + 1)} className='font-bold text-2xl bg-gray-200 rounded-full w-10 h-10'>+</button>
             </div>
           </div>
-          {/* Budget */}
           <div className="mb-6 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">3. What&apos;s the total budget?</label>
             <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
             <input type="range" min="20000" max="1000000" step="10000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
           </div>
-          {/* Custom Prompt */}
           <div className="mb-8 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">4. Any other requests?</label>
             <textarea value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} placeholder="e.g., must be coastal, pet-friendly..." className="w-full p-2 border border-gray-300 rounded-lg" rows={2}/>
@@ -157,7 +155,6 @@ export default function Home() {
   const renderResults = () => (
     <div className="animate-fade-in w-full">
       {itinerary ? (
-        // Itinerary View
         <div className='text-left'>
            <h1 className="text-3xl font-bold mb-4 text-blue-600 text-center">Itinerary for {currentRecommendation?.name}</h1>
            <div className='prose prose-sm sm:prose-base max-w-none bg-gray-50 p-4 rounded-lg'>
@@ -166,7 +163,6 @@ export default function Home() {
            <button onClick={() => setItinerary(null)} className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Back to Recommendation</button>
         </div>
       ) : (
-        // Recommendation View
         <>
           <h2 className="text-xl font-semibold mb-2">Your AI recommendation is...</h2>
           <h1 className="text-4xl font-bold mb-4 text-blue-600">{currentRecommendation?.name}</h1>
@@ -179,7 +175,7 @@ export default function Home() {
                 {loadingState === 'recommendation' ? 'Thinking...' : 'Suggest Again'}
              </button>
              <button onClick={createItinerary} disabled={loadingState !== 'idle'} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg disabled:bg-gray-400">
-                {loadingState === 'itinerary' ? 'Building...' : 'Create 3-Day Itinerary'}
+                {loadingState === 'itinerary' ? 'Building...' : 'Create Itinerary'}
              </button>
           </div>
         </>
@@ -198,7 +194,6 @@ export default function Home() {
                 <button onClick={() => setError(null)} className="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Try Again</button>
             </div>
         )}
-
         {!currentRecommendation ? renderQuiz() : renderResults()}
       </div>
     </main>

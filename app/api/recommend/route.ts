@@ -2,7 +2,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  // ✨ NEW: Accept numPeople and previousRecommendations
   const { travelStyles, budget, customPrompt, numPeople, previousRecommendations } = await req.json();
 
   if (!travelStyles || travelStyles.length === 0 || !budget || !numPeople) {
@@ -12,7 +11,6 @@ export async function POST(req: NextRequest) {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // 🔄 UPDATED: A more detailed prompt for the AI
   const prompt = `
     You are a travel recommendation expert. A group of ${numPeople} people from India are looking for a trip.
 
@@ -22,13 +20,13 @@ export async function POST(req: NextRequest) {
     - **Specific User Requirements:** "${customPrompt || 'None specified.'}"
     ${previousRecommendations && previousRecommendations.length > 0 ? `- **Destinations to Exclude:** "${previousRecommendations.join(', ')}"` : ''}
 
-    Based on all these preferences, recommend a single, specific travel destination. The destination must be a great fit for a group of ${numPeople} and realistically achievable within the budget.
+    Based on all these preferences, recommend a single, specific travel destination.
 
     Respond with ONLY a JSON object in the following format, with no other text or markdown:
     {
       "name": "Destination Name",
       "description": "A compelling, 2-3 sentence description of why this place is a great fit, referencing the group size, styles, and budget.",
-      "image": "a photographic search term for an image of this place"
+      "image": "A highly specific, aesthetic, and iconic photographic search term for this destination. For example, for 'Paris', suggest 'Eiffel Tower at sunrise'. For 'Kyoto', suggest 'Arashiyama Bamboo Grove path'. For 'Rishikesh', suggest 'Laxman Jhula bridge Ganga river'."
     }
   `;
 
