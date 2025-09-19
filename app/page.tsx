@@ -1,40 +1,64 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, FC, ReactNode } from 'react';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
+// ✨ NEW: Import icons
+import { FaUtensils, FaCamera, FaBed, FaLightbulb, FaMapSigns } from 'react-icons/fa';
 
 interface Recommendation {
   name: string;
   description: string;
-  image: string; // This is now the search term
+  image: string; // This is the search term
 }
 
 const allMoods = ["Adventure", "Culture", "Relaxation", "Foodie", "Historical", "Nightlife"];
 type LoadingState = 'idle' | 'recommendation' | 'itinerary';
 
+// ✨ NEW: Custom components to render the itinerary markdown beautifully
+const customRenderers = {
+  h2: ({ node, ...props }: { node?: any, children: ReactNode }) => (
+    <h2 className="text-2xl font-bold mt-6 mb-3 border-b-2 border-indigo-200 pb-2" {...props} />
+  ),
+  li: ({ node, ...props }: { node?: any, children: ReactNode }) => {
+    // Check the text content of the list item for our keywords
+    const text = (props.children as string[])?.join('').trim() || '';
+    let icon = <FaMapSigns className="text-sky-500" />; // Default icon
+
+    if (text.startsWith('Food:')) icon = <FaUtensils className="text-orange-500" />;
+    if (text.startsWith('Activity:')) icon = <FaCamera className="text-purple-500" />;
+    if (text.startsWith('Stay:')) icon = <FaBed className="text-green-500" />;
+    if (text.startsWith('Tip:')) icon = <FaLightbulb className="text-yellow-500" />;
+    
+    // Remove the keyword from the displayed text
+    const displayText = text.replace(/^(Food:|Activity:|Stay:|Tip:)\s*/, '');
+
+    return (
+      <li className="flex items-start gap-4 my-3">
+        <div className="flex-shrink-0 w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center mt-1">
+          {icon}
+        </div>
+        <span className="flex-1">{displayText}</span>
+      </li>
+    );
+  },
+};
+
 export default function Home() {
-  // Quiz State
   const [travelStyles, setTravelStyles] = useState<string[]>([]);
   const [numPeople, setNumPeople] = useState(2);
   const [budget, setBudget] = useState<number>(100000); 
   const [customPrompt, setCustomPrompt] = useState<string>("");
-  
-  // Results State
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [itinerary, setItinerary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>('idle');
-  
-  // ✨ NEW: State to hold the final, fetched image URL
   const [imageUrl, setImageUrl] = useState<string>('');
   
   const currentRecommendation = recommendations.length > 0 ? recommendations[recommendations.length - 1] : null;
 
-  // ✨ NEW: useEffect hook to fetch the image when a new recommendation is received
   useEffect(() => {
     if (!currentRecommendation) return;
-
     const fetchImage = async () => {
       try {
         const response = await fetch('/api/image', {
@@ -43,21 +67,14 @@ export default function Home() {
           body: JSON.stringify({ searchTerm: currentRecommendation.image })
         });
         const data = await response.json();
-        if (data.imageUrl) {
-          setImageUrl(data.imageUrl);
-        } else {
-          // Set a default fallback image if something goes wrong
-          setImageUrl('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1');
-        }
+        setImageUrl(data.imageUrl || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1');
       } catch (error) {
         console.error("Failed to fetch image", error);
         setImageUrl('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1');
       }
     };
-
     fetchImage();
   }, [currentRecommendation]);
-
 
   const handleMoodSelect = (mood: string) => {
     setTravelStyles(prev => prev.includes(mood) ? prev.filter(s => s !== mood) : [...prev, mood]);
@@ -65,28 +82,24 @@ export default function Home() {
   
   const findRecommendation = async () => {
     if (travelStyles.length === 0) {
-        setError("Please select at least one travel style.");
-        return;
+      setError("Please select at least one travel style.");
+      return;
     }
     setError(null);
     setItinerary(null);
     setLoadingState('recommendation');
-
     const previousRecommendations = recommendations.map(r => r.name);
-
     try {
       const response = await fetch('/api/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ travelStyles, budget, customPrompt, numPeople, previousRecommendations }),
       });
-
       if (!response.ok) throw new Error('AI failed to find a recommendation. Please try again.');
       const data: Recommendation = await response.json();
       setRecommendations(prev => [...prev, data]);
     } catch (err) {
       if (err instanceof Error) setError(err.message);
-      else setError('An unexpected error occurred.');
     } finally {
       setLoadingState('idle');
     }
@@ -96,29 +109,21 @@ export default function Home() {
     if (!currentRecommendation) return;
     setLoadingState('itinerary');
     setError(null);
-
     try {
       const response = await fetch('/api/itinerary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destinationName: currentRecommendation.name,
-          travelStyles,
-          budget,
-          numPeople,
-          customPrompt
-        })
+        body: JSON.stringify({ destinationName: currentRecommendation.name, travelStyles, budget, numPeople, customPrompt })
       });
       if (!response.ok) throw new Error('AI failed to create an itinerary. Please try again.');
       const data = await response.json();
       setItinerary(data.itinerary);
     } catch (err) {
       if (err instanceof Error) setError(err.message);
-      else setError('An unexpected error occurred.');
     } finally {
       setLoadingState('idle');
     }
-  }
+  };
   
   const resetQuiz = () => {
     setTravelStyles([]);
@@ -136,7 +141,6 @@ export default function Home() {
     <>
       <h1 className="text-3xl font-bold mb-2">AI Travel Planner</h1>
       <p className="text-gray-600 mb-8">Answer a few questions to get your next trip planned.</p>
-      
       <div className="mb-6 text-left">
         <label className="block text-xl font-semibold mb-4 text-center">1. What&apos;s the vibe?</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -147,7 +151,6 @@ export default function Home() {
           ))}
         </div>
       </div>
-
       {travelStyles.length > 0 && (
         <div className='animate-fade-in'>
           <div className="mb-6 text-left">
@@ -161,7 +164,7 @@ export default function Home() {
           <div className="mb-6 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">3. What&apos;s the total budget?</label>
             <p className='text-center text-2xl font-bold text-purple-600 mb-2'>₹ {budget.toLocaleString('en-IN')}</p>
-            <input type="range" min="5000" max="1000000" step="5000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
+            <input type="range" min="20000" max="1000000" step="10000" value={budget} onChange={e => setBudget(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"/>
           </div>
           <div className="mb-8 text-left">
             <label className="block text-xl font-semibold mb-2 text-center">4. Any other requests?</label>
@@ -180,8 +183,9 @@ export default function Home() {
       {itinerary ? (
         <div className='text-left'>
            <h1 className="text-3xl font-bold mb-4 text-blue-600 text-center">Itinerary for {currentRecommendation?.name}</h1>
-           <div className='prose prose-sm sm:prose-base max-w-none bg-gray-50 p-4 rounded-lg'>
-             <ReactMarkdown>{itinerary}</ReactMarkdown>
+           {/* 🔄 UPDATED: Using the new custom renderers for a beautiful display */}
+           <div className='bg-gray-50 p-4 rounded-lg max-h-[50vh] overflow-y-auto'>
+             <ReactMarkdown components={customRenderers}>{itinerary}</ReactMarkdown>
            </div>
            <button onClick={() => setItinerary(null)} className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Back to Recommendation</button>
         </div>
@@ -189,11 +193,10 @@ export default function Home() {
         <>
           <h2 className="text-xl font-semibold mb-2">Your AI recommendation is...</h2>
           <h1 className="text-4xl font-bold mb-4 text-blue-600">{currentRecommendation?.name}</h1>
-          {/* 🔄 UPDATED: The Image component now uses the imageUrl state */}
-          <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4 bg-gray-200 animate-pulse">
-            {imageUrl && (
+          <div className="relative w-full h-60 rounded-lg overflow-hidden shadow-md mb-4 bg-gray-200">
+            {imageUrl ? (
                 <Image src={imageUrl} alt={currentRecommendation!.name} fill={true} style={{objectFit:"cover"}} priority />
-            )}
+            ) : <div className="w-full h-full bg-gray-200 animate-pulse" />}
           </div>
           <p className="text-gray-700 mb-6 text-left">{currentRecommendation?.description}</p>
           <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
@@ -212,14 +215,8 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-gray-100 text-gray-800 font-sans">
-      <div className="w-full max-w-xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center transition-all duration-500">
-        {error && (
-            <div className="text-red-500 mb-4">
-                <h2 className="text-2xl font-bold mb-2">Oops!</h2>
-                <p>{error}</p>
-                <button onClick={() => setError(null)} className="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Try Again</button>
-            </div>
-        )}
+      <div className="w-full max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-8 text-center transition-all duration-500">
+        {error && ( <div className="text-red-500 mb-4"><h2 className="text-2xl font-bold mb-2">Oops!</h2><p>{error}</p><button onClick={() => setError(null)} className="mt-4 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg">Try Again</button></div> )}
         {!currentRecommendation ? renderQuiz() : renderResults()}
       </div>
     </main>

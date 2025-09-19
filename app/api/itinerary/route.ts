@@ -11,20 +11,26 @@ export async function POST(req: NextRequest) {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // 🔄 UPDATED PROMPT: Removed "3-day" constraint. AI now determines the optimal trip duration.
+  // 🔄 UPDATED PROMPT: Added instructions for AI to prefix activities with keywords for icon mapping.
   const prompt = `
     You are an expert travel planner. Create the best possible, detailed itinerary for a group of ${numPeople} people traveling to ${destinationName}.
 
     Their travel profile is as follows:
-    - **Total Budget for the Group:** ₹${Number(budget).toLocaleString('en-IN')}. This budget must cover reasonable accommodation, activities, and food for the entire trip.
+    - **Total Budget for the Group:** ₹${Number(budget).toLocaleString('en-IN')}.
     - **Desired Vibe/Styles:** ${travelStyles.join(', ')}
     - **Other User Notes:** "${customPrompt || 'None'}"
 
-    Crucially, you must determine the optimal duration (number of days) for the trip based on the destination and the provided budget. The goal is to create the most fulfilling experience possible without exceeding the budget. State the recommended duration clearly at the beginning of the itinerary.
+    Determine the optimal duration for the trip based on the destination and budget. State the recommended duration clearly at the beginning.
 
-    The itinerary should be practical and inspiring. Include a mix of activities, potential dining spots, and logistical tips. The tone should be exciting and helpful.
+    Format the response using markdown. For each list item, YOU MUST start the line with a keyword followed by a colon to hint at the activity type. Use these keywords:
+    - **"Food:"** for dining, cafes, or culinary experiences.
+    - **"Activity:"** for sightseeing, tours, events, or general actions.
+    - **"Stay:"** for lodging or accommodation details.
+    - **"Tip:"** for helpful advice, notes, or transportation info.
 
-    Format the response as a single block of text. Use markdown for headings (e.g., '## Day 1: Arrival and Exploration') and bullet points for activities. Do not wrap the response in a JSON object or markdown code block.
+    Example of a list item:
+    - Activity: Explore the ancient ruins of the Vijayanagara Empire.
+    - Food: Enjoy a traditional South Indian thali for lunch.
   `;
 
   try {
